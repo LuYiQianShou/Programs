@@ -1,4 +1,4 @@
-# Informations of the repository
+# Information of the repository
 Would you like to download,read or run these programs?
 You should know this prompts!
 - Read the license before you read or edit the programs.
