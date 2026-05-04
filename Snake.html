@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Snake</title>
+        <style>
+            body{
+                background-color:#17711D;
+                display:flex;
+                justify-content:center;
+                align-items:center;
+                min-height:100vh;
+                margin:0px;
+                padding:20px;
+                font-family:Arial,sans-serif;
+                flex-direction:column;
+            }
+            h1{
+                color:#FFFFFF;
+                font-size:42px;
+                margin:0 0 20px 0;
+            }
+            canvas{
+                background-color:#000000;
+                border-radius:10px;
+                cursor:pointer;
+                position:relative;
+            }
+            .info{
+                margin-top:20px;
+                display:flex;
+                gap:30px;
+                align-items:center;
+                flex-wrap:wrap;
+                justify-content:center;
+            }
+            .score{
+                color:#FFFFFF;
+                font-size:28px;
+                font-weight:bold;
+            }
+            button{
+                background-color:#DD9A0B;
+                width:150px;
+                height:40px;
+                font-size:18px;
+                font-weight:bold;
+                border-radius:20px;
+                border:none;
+                cursor:pointer;
+                color:#FFFFFF;
+            }
+            button:hover{
+                background-color:#F5B01A;
+            }
+            .size-control{
+                display:flex;
+                align-items:center;
+                gap:10px;
+                background-color:#0E5A12;
+                padding:8px 16px;
+                border-radius:30px;
+            }
+            .size-control label{
+                color:#FFFFFF;
+                font-size:16px;
+                font-weight:bold;
+            }
+            input{
+                cursor:pointer;
+                width:150px;
+            }
+            .size-value{
+                color:#FFD700;
+                font-weight:bold;
+                font-size:16px;
+                min-width:40px;
+            }
+            .start-btn{
+                background-color:#FF6600;
+                width:140px;
+            }
+            .start-btn:hover{
+                background-color:#FF8844;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>🐍 Snake</h1>
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <div class="info">
+            <div class="score">🎯 Score: <span id="score">0</span></div>
+            <div class="size-control">
+                <label>📐 Map Size</label>
+                <input type="range" id="sizeSlider" min="20" max="50" step="5" value="20">
+                <span class="size-value" id="sizeValue">20x20</span>
+            </div>
+            <button id="startBtn" class="start-btn">🎮 Start Game</button>
+            <button id="resetBtn">🔄 New Game</button>
+        </div>
+        <script>
+            const canvas=document.getElementById("gameCanvas");
+            const ctx=canvas.getContext("2d");
+            const maxSize=400;
+            let size=20;
+            let cell=20;
+            let snake=[[10,10],[9,10],[8,10]];
+            let dir="RIGHT";
+            let nextDir="RIGHT";
+            let food=[15,10];
+            let score=0;
+            let running=false;
+            let gameLoop;
+            const sizeSlider=document.getElementById("sizeSlider");
+            const sizeValue=document.getElementById("sizeValue");
+            const startBtn=document.getElementById("startBtn");
+            const resetBtn=document.getElementById("resetBtn");
+            function updateScore(){
+                document.getElementById("score").innerText=score;
+            }
+            function calculateCell(){
+                cell=maxSize/size;
+            }
+            function generateFood(){
+                let empty=[];
+                for(let i=0;i<size;i++){
+                    for(let j=0;j<size;j++){
+                        let occupied=false;
+                        for(let s of snake){
+                            if(s[0]===i&&s[1]===j){
+                                occupied=true;
+                                break;
+                            }
+                        }
+                        if(!occupied)empty.push([i,j]);
+                    }
+                }
+                if(empty.length>0){
+                    let idx=Math.floor(Math.random()*empty.length);
+                    food=empty[idx];
+                }
+            }
+            function initSnakeAndFood(){
+                let center=Math.floor(size/2);
+                snake=[[center,center],[center-1,center],[center-2,center]];
+                dir="RIGHT";
+                nextDir="RIGHT";
+                food=[center+5,center];
+                score=0;
+                updateScore();
+            }
+            function drawGameOver(){
+                ctx.fillStyle="rgba(0,0,0,0.7)";
+                ctx.fillRect(0,0,maxSize,maxSize);
+                ctx.fillStyle="#FFFFFF";
+                ctx.font="bold 30px Arial";
+                ctx.textAlign="center";
+                ctx.fillText("GAME OVER",maxSize/2,maxSize/2-20);
+                ctx.font="20px Arial";
+                ctx.fillStyle="#DD9A0B";
+                ctx.fillText("Click \"Start Game\" to continue",maxSize/2,maxSize/2+30);
+                ctx.textAlign="left";
+            }
+            function draw(){
+                ctx.fillStyle="#000000";
+                ctx.fillRect(0,0,maxSize,maxSize);
+                ctx.fillStyle="#17711D";
+                for(let i=0;i<size;i++){
+                    ctx.fillRect(i*cell,0,1,maxSize);
+                    ctx.fillRect(0,i*cell,maxSize,1);
+                }
+                let fontSize=Math.max(10,Math.floor(cell*0.9));
+                ctx.font=`${fontSize}px Arial`;
+                ctx.fillStyle="#FF0000";
+                ctx.fillText("🍎",food[1]*cell+1,food[0]*cell+fontSize);
+                for(let i=0;i<snake.length;i++){
+                    if(i===0)ctx.fillStyle="#FFFFFF";
+                    else ctx.fillStyle="#338113";
+                    ctx.fillRect(snake[i][1]*cell,snake[i][0]*cell,cell-1,cell-1);
+                }
+            }
+            function move(){
+                if(!running)return;
+                dir=nextDir;
+                let head=[snake[0][0],snake[0][1]];
+                if(dir==="UP")head[0]--;
+                if(dir==="DOWN")head[0]++;
+                if(dir==="LEFT")head[1]--;
+                if(dir==="RIGHT")head[1]++;
+                if(head[0]<0||head[0]>=size||head[1]<0||head[1]>=size){
+                    gameOver();
+                    return;
+                }
+                for(let i=0;i<snake.length;i++){
+                    if(head[0]===snake[i][0]&&head[1]===snake[i][1]){
+                        gameOver();
+                        return;
+                    }
+                }
+                snake.unshift(head);
+                if(head[0]===food[0]&&head[1]===food[1]){
+                    score++;
+                    updateScore();
+                    generateFood();
+                }else{
+                    snake.pop();
+                }
+                draw();
+            }
+            function gameOver(){
+                if(!running)return;
+                running=false;
+                if(gameLoop)clearInterval(gameLoop);
+                gameLoop=null;
+                draw();
+                drawGameOver();
+            }
+            function startGame(){
+                if(gameLoop)clearInterval(gameLoop);
+                initSnakeAndFood();
+                calculateCell();
+                generateFood();
+                draw();
+                running=true;
+                gameLoop=setInterval(move,150);
+            }
+            function resetGame(){
+                if(gameLoop)clearInterval(gameLoop);
+                initSnakeAndFood();
+                calculateCell();
+                generateFood();
+                draw();
+                running=false;
+                gameLoop=null;
+            }
+            function changeSize(){
+                let newSize=parseInt(sizeSlider.value);
+                if(newSize===size)return;
+                size=newSize;
+                sizeValue.innerText=`${size}x${size}`;
+                calculateCell();
+                initSnakeAndFood();
+                generateFood();
+                draw();
+                if(gameLoop){
+                    clearInterval(gameLoop);
+                    gameLoop=null;
+                }
+                running=false;
+            }
+            window.addEventListener("keydown",function(e){
+                const key=e.key;
+                if(!running)return;
+                if(key==="ArrowUp"&&dir!=="DOWN")nextDir="UP";
+                else if(key==="ArrowDown"&&dir!=="UP")nextDir="DOWN";
+                else if(key==="ArrowLeft"&&dir!=="RIGHT")nextDir="LEFT";
+                else if(key==="ArrowRight"&&dir!=="LEFT")nextDir="RIGHT";
+                else if(key==="w"&&dir!=="DOWN")nextDir="UP";
+                else if(key==="s"&&dir!=="UP")nextDir="DOWN";
+                else if(key==="a"&&dir!=="RIGHT")nextDir="LEFT";
+                else if(key==="d"&&dir!=="LEFT")nextDir="RIGHT";
+            });
+            sizeSlider.addEventListener("input",changeSize);
+            startBtn.addEventListener("click",startGame);
+            resetBtn.addEventListener("click",resetGame);
+            initSnakeAndFood();
+            calculateCell();
+            generateFood();
+            draw();
+            ctx.fillStyle="rgba(0,0,0,0.7)";
+            ctx.fillRect(0,0,maxSize,maxSize);
+            ctx.fillStyle="#FFFFFF";
+            ctx.font="bold 30px Arial";
+            ctx.textAlign="center";
+            ctx.fillText("🐍 SNAKE",maxSize/2,maxSize/2-20);
+            ctx.font="18px Arial";
+            ctx.fillStyle="#DD9A0B";
+            ctx.fillText("Click \"Start Game\" to continue",maxSize/2,maxSize/2+30);
+            ctx.textAlign="left";
+        </script>
+    </body>
+</html>
